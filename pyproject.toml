@@ -29,7 +29,7 @@ dependencies = [
 md_maker = "md_maker.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/aungbhonepyace/md_maker"
+Homepage = "https://github.com/joistich/md_maker"
 
 [tool.setuptools.packages.find]
 where = ["src"]

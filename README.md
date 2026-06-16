@@ -42,13 +42,13 @@ It was built for an NLP / Cross-Domain ABSA thesis literature workflow, but noth
 brew install python@3.12 pipx
 pipx ensurepath        # restart your shell after this
 
-pipx install git+https://github.com/aungbhonepyace/md_maker
+pipx install git+https://github.com/joistich/md_maker
 ```
 
 Local dev install:
 
 ```bash
-git clone https://github.com/aungbhonepyace/md_maker.git
+git clone https://github.com/joistich/md_maker.git
 cd md_maker
 pipx install -e .
 ```
@@ -174,7 +174,7 @@ The repo ships a Claude Code skill at `.claude/skills/ingest-paper/SKILL.md`. In
 ## Development
 
 ```bash
-git clone https://github.com/aungbhonepyace/md_maker.git
+git clone https://github.com/joistich/md_maker.git
 cd md_maker
 pipx install -e .
 
