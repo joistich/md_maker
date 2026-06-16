@@ -17,8 +17,8 @@ md_maker "$1"
 
 That single command:
 - Accepts a `.pdf` file or a directory of PDFs (top-level only, no recursion).
-- Writes cleaned Markdown to `./Literature_Vault/` (relative to the user's current working directory).
-- Drops extracted images into `./assets/` with `<stem>__` prefixes.
+- Creates `./<stem>/Literature_Vault/<stem>.md`, `./<stem>/assets/*`, and a scratch `./<stem>/mineru_out/` (deleted after).
+- Override the parent dir with `-o some/dir` (output then lands under `some/dir/<stem>/...`).
 - Uses Apple Silicon MPS via `MINERU_DEVICE_MODE=mps` (set automatically).
 - Skips files already vaulted unless `--force`.
 

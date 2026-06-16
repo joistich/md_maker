@@ -14,15 +14,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         prog="md_maker",
         description="Convert PDF(s) to token-optimized Markdown. "
-        "Accepts a single .pdf or a directory of PDFs (top-level only).",
+        "Accepts a single .pdf or a directory of PDFs (top-level only). "
+        "Each PDF gets its own <stem>/ folder with Literature_Vault/, assets/, mineru_out/.",
     )
     ap.add_argument("input", type=Path, help="PDF file or directory containing PDFs")
-    ap.add_argument("-o", "--vault", type=Path, default=Path("Literature_Vault"),
-                    help="Output directory for cleaned Markdown (default: ./Literature_Vault)")
-    ap.add_argument("-a", "--assets", type=Path, default=Path("assets"),
-                    help="Directory for extracted images (default: ./assets)")
-    ap.add_argument("--scratch", type=Path, default=Path("mineru_out"),
-                    help="Scratch directory for raw MinerU output (default: ./mineru_out)")
+    ap.add_argument("-o", "--out", type=Path, default=Path("."),
+                    help="Parent directory for per-PDF output folders (default: current dir)")
     ap.add_argument("-b", "--backend", default="pipeline",
                     choices=["pipeline", "vlm-engine", "hybrid-engine",
                              "vlm-http-client", "hybrid-http-client"],
@@ -35,7 +32,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--force", action="store_true",
                     help="Reprocess even if vault entry already exists")
     ap.add_argument("--keep-scratch", action="store_true",
-                    help="Do not delete mineru_out/<stem>/ after run")
+                    help="Do not delete <stem>/mineru_out/ after run")
     ap.add_argument("--title", default="", help="Frontmatter title override")
     ap.add_argument("--target-domain", default="", help="Frontmatter target_domain override")
     ap.add_argument("--source-domain", default="", help="Frontmatter source_domain override")
@@ -52,9 +49,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     cfg = Config(
-        vault=args.vault.resolve(),
-        assets=args.assets.resolve(),
-        scratch=args.scratch.resolve(),
+        out=args.out.resolve(),
         backend=args.backend,
         method=args.method,
         lang=args.lang,
@@ -66,10 +61,11 @@ def main(argv: list[str] | None = None) -> int:
         source_domain=args.source_domain,
         subtask=args.subtask,
     )
+    cfg.out.mkdir(parents=True, exist_ok=True)
 
     if inp.is_dir():
         done, skipped, failed = ingest_folder(inp, cfg)
-        print(f"\nmd_maker: {done} processed, {skipped} skipped, {failed} failed. Vault: {cfg.vault}")
+        print(f"\nmd_maker: {done} processed, {skipped} skipped, {failed} failed. Output root: {cfg.out}")
         return 0 if failed == 0 else 1
 
     if inp.suffix.lower() != ".pdf":

@@ -12,12 +12,34 @@ from pathlib import Path
 
 from .cleaner import clean
 
+VAULT_DIR_NAME = "Literature_Vault"
+ASSETS_DIR_NAME = "assets"
+SCRATCH_DIR_NAME = "mineru_out"
+
 
 @dataclass
-class Config:
+class Paths:
+    root: Path
     vault: Path
     assets: Path
     scratch: Path
+    md: Path
+
+
+def paths_for(out: Path, stem: str) -> Paths:
+    root = (out / stem).resolve()
+    return Paths(
+        root=root,
+        vault=root / VAULT_DIR_NAME,
+        assets=root / ASSETS_DIR_NAME,
+        scratch=root / SCRATCH_DIR_NAME,
+        md=root / VAULT_DIR_NAME / f"{stem}.md",
+    )
+
+
+@dataclass
+class Config:
+    out: Path
     backend: str = "pipeline"
     method: str = "auto"
     lang: str = "en"
@@ -67,11 +89,11 @@ def _find_mineru() -> str:
     )
 
 
-def _run_mineru(pdf: Path, cfg: Config) -> subprocess.CompletedProcess[str]:
+def _run_mineru(pdf: Path, scratch: Path, cfg: Config) -> subprocess.CompletedProcess[str]:
     args = [
         _find_mineru(),
         "-p", str(pdf),
-        "-o", str(cfg.scratch),
+        "-o", str(scratch),
         "-b", cfg.backend,
         "-m", cfg.method,
         "-l", cfg.lang,
@@ -93,7 +115,7 @@ def _locate_markdown(scratch: Path, stem: str) -> Path | None:
     return matches[0] if matches else None
 
 
-def _move_images(src_dir: Path, assets: Path, stem: str) -> int:
+def _move_images(src_dir: Path, assets: Path) -> int:
     src_images = src_dir / "images"
     if not src_images.is_dir():
         return 0
@@ -102,8 +124,7 @@ def _move_images(src_dir: Path, assets: Path, stem: str) -> int:
     for img in src_images.iterdir():
         if not img.is_file():
             continue
-        dst = assets / f"{stem}__{img.name}"
-        shutil.move(str(img), str(dst))
+        shutil.move(str(img), str(assets / img.name))
         n += 1
     return n
 
@@ -111,30 +132,31 @@ def _move_images(src_dir: Path, assets: Path, stem: str) -> int:
 def ingest_one(pdf: Path, cfg: Config) -> Result:
     pdf = pdf.resolve()
     stem = pdf.stem
-    cfg.vault.mkdir(parents=True, exist_ok=True)
-    cfg.assets.mkdir(parents=True, exist_ok=True)
-    cfg.scratch.mkdir(parents=True, exist_ok=True)
+    p = paths_for(cfg.out, stem)
 
-    out_path = cfg.vault / f"{stem}.md"
-    if out_path.exists() and not cfg.force:
-        return Skipped(out_path)
+    if p.md.exists() and not cfg.force:
+        return Skipped(p.md)
 
-    proc = _run_mineru(pdf, cfg)
+    p.vault.mkdir(parents=True, exist_ok=True)
+    p.assets.mkdir(parents=True, exist_ok=True)
+    p.scratch.mkdir(parents=True, exist_ok=True)
+
+    proc = _run_mineru(pdf, p.scratch, cfg)
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
         return Failed("mineru failed: " + " | ".join(tail))
 
-    md_path = _locate_markdown(cfg.scratch, stem)
+    md_path = _locate_markdown(p.scratch, stem)
     if md_path is None:
-        return Failed(f"mineru produced no markdown under {cfg.scratch}/{stem}")
+        return Failed(f"mineru produced no markdown under {p.scratch}/{stem}")
     src_dir = md_path.parent
 
-    n_images = _move_images(src_dir, cfg.assets, stem)
+    n_images = _move_images(src_dir, p.assets)
 
     raw = md_path.read_text(encoding="utf-8", errors="replace")
     bytes_in = len(raw.encode("utf-8"))
 
-    raw = IMG_LINK_RE.sub(lambda m: f"{cfg.assets.name}/{stem}__{m.group(1)}", raw)
+    raw = IMG_LINK_RE.sub(lambda m: f"../{ASSETS_DIR_NAME}/{m.group(1)}", raw)
 
     cleaned, _ = clean(
         raw,
@@ -144,13 +166,13 @@ def ingest_one(pdf: Path, cfg: Config) -> Result:
         subtask=cfg.subtask,
         source_pdf=pdf.name,
     )
-    out_path.write_text(cleaned, encoding="utf-8")
+    p.md.write_text(cleaned, encoding="utf-8")
     bytes_out = len(cleaned.encode("utf-8"))
 
     if not cfg.keep_scratch:
-        shutil.rmtree(cfg.scratch / stem, ignore_errors=True)
+        shutil.rmtree(p.scratch, ignore_errors=True)
 
-    return Done(out_path, bytes_in, bytes_out, n_images)
+    return Done(p.md, bytes_in, bytes_out, n_images)
 
 
 def ingest_folder(folder: Path, cfg: Config) -> tuple[int, int, int]:

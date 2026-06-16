@@ -71,8 +71,8 @@ md_maker paper.pdf
 ```
 
 Output:
-- `./Literature_Vault/paper.md`
-- `./assets/paper__*.jpg`
+- `./paper/Literature_Vault/paper.md`
+- `./paper/assets/*.jpg`
 
 ### Folder of PDFs
 
@@ -81,20 +81,27 @@ cd ~/where_my_papers_live
 md_maker papers/
 ```
 
-Iterates every `*.pdf` directly under `papers/` (no recursion by design). Each file becomes one Markdown in the vault. Failures are isolated — one bad PDF won't kill the batch.
+Iterates every `*.pdf` directly under `papers/` (no recursion by design). Each file becomes its own sibling folder. Failures are isolated — one bad PDF won't kill the batch.
 
-### Output layout (anchored to current working directory)
+### Output layout
+
+Each PDF produces a self-contained directory named after its stem, written under the `--out` dir (default: current working directory).
 
 ```
 $PWD/
-├── Literature_Vault/      # cleaned Markdown notes
-│   ├── paper_a.md
-│   └── paper_b.md
-├── assets/                # extracted figures / table crops
-│   ├── paper_a__img-0.jpg
-│   └── paper_b__img-3.png
-└── mineru_out/            # scratch (auto-deleted unless --keep-scratch)
+├── paper_a/
+│   ├── Literature_Vault/
+│   │   └── paper_a.md
+│   ├── assets/
+│   │   ├── img-0.jpg
+│   │   └── img-1.jpg
+│   └── mineru_out/         # scratch (auto-deleted unless --keep-scratch)
+└── paper_b/
+    ├── Literature_Vault/paper_b.md
+    └── assets/img-0.png
 ```
+
+Use `-o some/dir` to write everything under `some/dir/<stem>/...` instead of cwd.
 
 ### Sample frontmatter
 
@@ -116,9 +123,7 @@ ingested_at: 2026-06-14
 | Flag | Default | Purpose |
 |------|---------|---------|
 | `input` | — | PDF file or directory |
-| `-o, --vault DIR` | `./Literature_Vault` | Where cleaned Markdown lands |
-| `-a, --assets DIR` | `./assets` | Where images land |
-| `--scratch DIR` | `./mineru_out` | Raw MinerU output (cleaned after run) |
+| `-o, --out DIR` | `.` | Parent directory; each PDF gets its own `<stem>/` subfolder inside |
 | `-b, --backend` | `pipeline` | `pipeline`, `vlm-engine`, `hybrid-engine`, … |
 | `-m, --method` | `auto` | `auto`, `txt`, `ocr` |
 | `-l, --lang` | `en` | Document language hint |
@@ -134,14 +139,14 @@ ingested_at: 2026-06-14
 
 For every PDF, `md_maker`:
 
-1. Shells out to MinerU with `MINERU_DEVICE_MODE=mps` and a sane default backend.
-2. Locates the produced Markdown (`mineru_out/<stem>/auto/<stem>.md`).
-3. Moves figure / table images into `./assets/` with `<stem>__` prefixes (collision-safe across papers).
-4. Rewrites `images/foo.jpg` references in the Markdown to `assets/<stem>__foo.jpg`.
+1. Creates `<out>/<stem>/{Literature_Vault,assets,mineru_out}/`.
+2. Shells out to MinerU with `MINERU_DEVICE_MODE=mps` into that scratch dir.
+3. Moves figure / table images from MinerU's `images/` into the paper's own `assets/`.
+4. Rewrites `images/foo.jpg` references in the Markdown to `../assets/foo.jpg` (vault file sits one level deep, so the link climbs out).
 5. Cuts everything after the last `References` / `Bibliography` / `Works Cited` heading.
 6. Strips repeated short lines (catches running headers like *"Proceedings of ACL 2024"*), page numbers (`1`, `- 12 -`, `Page 3 of 8`), and MinerU page markers.
 7. Prepends YAML frontmatter, merging anything already present.
-8. Writes `./Literature_Vault/<stem>.md` and reports byte / token delta.
+8. Writes `<out>/<stem>/Literature_Vault/<stem>.md` and reports byte / token delta.
 
 Code/math fences and tables are protected throughout — content inside ` ``` `, `$$…$$`, or `|`-tables is never touched.
 
