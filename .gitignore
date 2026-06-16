@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+*.so
+.Python
+
+# Build / packaging
+build/
+dist/
+wheels/
+.eggs/
+pip-wheel-metadata/
+MANIFEST
+
+# Venvs
+.venv/
+venv/
+env/
+ENV/
+
+# Pipeline outputs (user-generated, anchored to cwd at run time)
+Literature_Vault/
+assets/
+mineru_out/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local Claude state (skill is shared, agent scratch is not)
+.claude/projects/
+.claude/cache/

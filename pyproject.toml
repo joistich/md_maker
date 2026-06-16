@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "md-maker"
+version = "0.1.0"
+description = "PDF -> token-optimized Markdown vault. Layout-aware (MinerU), MPS-accelerated."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Aung Bhone Pyae" }]
+keywords = ["pdf", "markdown", "mineru", "absa", "nlp", "academic"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: MacOS :: MacOS X",
+    "Topic :: Text Processing :: Markup :: Markdown",
+]
+dependencies = [
+    "mineru[core]>=3.3,<4",
+    "torch>=2.2",
+    "torchvision>=0.17",
+]
+
+[project.scripts]
+md_maker = "md_maker.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/aungbhonepyace/md_maker"
+
+[tool.setuptools.packages.find]
+where = ["src"]
