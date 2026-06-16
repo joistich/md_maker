@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import html
 import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
+from html.parser import HTMLParser
 from pathlib import Path
 
 REF_HEAD = re.compile(
@@ -167,6 +169,115 @@ def estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+HTML_TABLE_RE = re.compile(r"<table\b[^>]*>.*?</table>", re.IGNORECASE | re.DOTALL)
+SUP_LETTER_RE = re.compile(r"<sup>([A-Za-z])</sup>")
+H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
+CONTENT_HEADING_RE = re.compile(
+    r"^#{1,3}\s+(?:\d+\.?\s+)?(abstract|introduction|background|related\s+work|"
+    r"motivation|preliminaries|problem\s+(?:definition|formulation)|methodology|"
+    r"proposed\s+approach|approach|method|methods|model)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+class _TableParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.rows: list[list[str]] = []
+        self._row: list[str] | None = None
+        self._cell_buf: list[str] | None = None
+        self.has_spans = False
+        self.bad = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tr":
+            self._row = []
+        elif tag in ("td", "th") and self._row is not None:
+            self._cell_buf = []
+            for name, value in attrs:
+                if name in ("rowspan", "colspan") and value and value.strip() not in ("", "1"):
+                    self.has_spans = True
+        elif tag == "br" and self._cell_buf is not None:
+            self._cell_buf.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("td", "th") and self._cell_buf is not None and self._row is not None:
+            text = " ".join("".join(self._cell_buf).split())
+            text = text.replace("|", r"\|")
+            self._row.append(text)
+            self._cell_buf = None
+        elif tag == "tr" and self._row is not None:
+            if self._row:
+                self.rows.append(self._row)
+            self._row = None
+
+    def handle_data(self, data: str) -> None:
+        if self._cell_buf is not None:
+            self._cell_buf.append(data)
+
+    def error(self, message: str) -> None:
+        self.bad = True
+
+
+def _html_table_to_markdown(block: str) -> str:
+    parser = _TableParser()
+    try:
+        parser.feed(block)
+        parser.close()
+    except Exception:
+        return block
+    if parser.bad or parser.has_spans or not parser.rows:
+        return block
+    width = max(len(r) for r in parser.rows)
+    if width < 2:
+        return block
+    norm = [r + [""] * (width - len(r)) for r in parser.rows]
+    header = norm[0]
+    sep = ["---"] * width
+    body = norm[1:]
+    lines = ["| " + " | ".join(header) + " |", "| " + " | ".join(sep) + " |"]
+    for row in body:
+        lines.append("| " + " | ".join(row) + " |")
+    return "\n".join(lines)
+
+
+def convert_html_tables(text: str) -> str:
+    return HTML_TABLE_RE.sub(lambda m: _html_table_to_markdown(m.group(0)), text)
+
+
+def strip_sup_letters(text: str) -> str:
+    return SUP_LETTER_RE.sub(r"\1", text)
+
+
+def strip_front_chrome(text: str) -> str:
+    """Drop everything before the first real content heading.
+
+    Detects the first H1 with the same wording as the canonical paper title,
+    or any heading whose text matches Abstract/Introduction/etc. Keeps that
+    heading and the body after it. If no anchor is found, returns text
+    unchanged (safer than over-amputating).
+    """
+    content_match = CONTENT_HEADING_RE.search(text)
+    h1_matches = list(H1_RE.finditer(text))
+
+    candidates: list[int] = []
+    if content_match:
+        candidates.append(content_match.start())
+
+    if len(h1_matches) >= 2:
+        first_h1 = h1_matches[0].group(1).strip().casefold()
+        for m in h1_matches[1:]:
+            if m.group(1).strip().casefold() == first_h1:
+                candidates.append(m.start())
+                break
+
+    if not candidates:
+        return text
+
+    cut = min(candidates)
+    return text[cut:].lstrip()
+
+
 def clean(
     raw: str,
     *,
@@ -178,8 +289,11 @@ def clean(
 ) -> tuple[str, bool]:
     """Return (cleaned_markdown_with_frontmatter, refs_were_cut)."""
     existing_fm, body = split_existing_frontmatter(raw)
+    body = strip_front_chrome(body)
     body, cut_ok = cut_references(body)
     body = strip_noise(body)
+    body = convert_html_tables(body)
+    body = strip_sup_letters(body)
     fm = build_frontmatter(
         existing_fm,
         title=title,

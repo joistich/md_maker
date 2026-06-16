@@ -20,15 +20,15 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("input", type=Path, help="PDF file or directory containing PDFs")
     ap.add_argument("-o", "--out", type=Path, default=Path("."),
                     help="Parent directory for per-PDF output folders (default: current dir)")
-    ap.add_argument("-b", "--backend", default="pipeline",
+    ap.add_argument("-b", "--backend", default="hybrid-engine",
                     choices=["pipeline", "vlm-engine", "hybrid-engine",
                              "vlm-http-client", "hybrid-http-client"],
-                    help="MinerU backend (default: pipeline)")
+                    help="MinerU backend (default: hybrid-engine; use 'pipeline' for faster / lower-memory runs)")
     ap.add_argument("-m", "--method", default="auto", choices=["auto", "txt", "ocr"],
                     help="MinerU parsing method (default: auto)")
     ap.add_argument("-l", "--lang", default="en", help="Document language (default: en)")
-    ap.add_argument("--effort", choices=["medium", "high"],
-                    help="hybrid-* backend effort level")
+    ap.add_argument("--effort", default="high", choices=["medium", "high"],
+                    help="hybrid-* backend effort level (default: high)")
     ap.add_argument("--force", action="store_true",
                     help="Reprocess even if vault entry already exists")
     ap.add_argument("--keep-scratch", action="store_true",

@@ -24,7 +24,7 @@ That single command:
 
 If the user passed extra hints in chat, forward them as flags:
 - `--title`, `--target-domain`, `--source-domain`, `--subtask`
-- `-b hybrid-engine --effort high` for chart/figure-heavy papers
+- `-b pipeline` for faster / lower-memory runs (skip the VLM-heavy hybrid backend)
 - `-m ocr` for scanned PDFs
 
 ## After the run

@@ -124,10 +124,10 @@ ingested_at: 2026-06-14
 |------|---------|---------|
 | `input` | — | PDF file or directory |
 | `-o, --out DIR` | `.` | Parent directory; each PDF gets its own `<stem>/` subfolder inside |
-| `-b, --backend` | `pipeline` | `pipeline`, `vlm-engine`, `hybrid-engine`, … |
+| `-b, --backend` | `hybrid-engine` | `pipeline`, `vlm-engine`, `hybrid-engine`, … Use `pipeline` for faster / lower-memory runs |
 | `-m, --method` | `auto` | `auto`, `txt`, `ocr` |
 | `-l, --lang` | `en` | Document language hint |
-| `--effort` | — | `medium` or `high` (hybrid-* backends only) |
+| `--effort` | `high` | `medium` or `high` (hybrid-* backends only) |
 | `--force` | off | Reprocess even if `<stem>.md` already vaulted |
 | `--keep-scratch` | off | Keep `mineru_out/<stem>/` for debugging |
 | `--title` / `--target-domain` / `--source-domain` / `--subtask` | — | Override frontmatter fields |
@@ -143,10 +143,13 @@ For every PDF, `md_maker`:
 2. Shells out to MinerU with `MINERU_DEVICE_MODE=mps` into that scratch dir.
 3. Moves figure / table images from MinerU's `images/` into the paper's own `assets/`.
 4. Rewrites `images/foo.jpg` references in the Markdown to `../assets/foo.jpg` (vault file sits one level deep, so the link climbs out).
-5. Cuts everything after the last `References` / `Bibliography` / `Works Cited` heading.
-6. Strips repeated short lines (catches running headers like *"Proceedings of ACL 2024"*), page numbers (`1`, `- 12 -`, `Page 3 of 8`), and MinerU page markers.
-7. Prepends YAML frontmatter, merging anything already present.
-8. Writes `<out>/<stem>/Literature_Vault/<stem>.md` and reports byte / token delta.
+5. Strips front-matter chrome (publication ribbons, author affiliation blocks, duplicated title H1) by skipping to the first content heading (Abstract / Introduction / a duplicated paper-title H1).
+6. Cuts everything after the last `References` / `Bibliography` / `Works Cited` heading.
+7. Strips repeated short lines (catches running headers like *"Proceedings of ACL 2024"*), page numbers (`1`, `- 12 -`, `Page 3 of 8`), and MinerU page markers.
+8. Converts inline HTML `<table>` blocks into Markdown pipe-tables when they have no `rowspan`/`colspan`. Tables with merged cells are left as HTML (still renders).
+9. Strips single-letter `<sup>X</sup>` over-tagging (cosmetic noise from MinerU's superscript detector).
+10. Prepends YAML frontmatter, merging anything already present.
+11. Writes `<out>/<stem>/Literature_Vault/<stem>.md` and reports byte / token delta.
 
 Code/math fences and tables are protected throughout — content inside ` ``` `, `$$…$$`, or `|`-tables is never touched.
 
